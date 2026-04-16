@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sports & Fitness Tracker 💪</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">🏋️ FitTrack</div>
+      <p class="tagline">Let's stay fit 💪 — one workout at a time!</p>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- ===== WORKOUT SECTION ===== -->
+    <section class="section-card" id="workout-section">
+      <h2 class="section-title">📋 Log Your Workout</h2>
+
+      <!-- Add Workout Form -->
+      <form id="workout-form" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="name">Your Name</label>
+            <input type="text" id="name" placeholder="e.g. Rahul" />
+          </div>
+          <div class="form-group">
+            <label for="exercise">Exercise Type</label>
+            <input type="text" id="exercise" placeholder="e.g. Running, Push-ups" />
+          </div>
+          <div class="form-group">
+            <label for="duration">Duration (minutes)</label>
+            <input type="number" id="duration" placeholder="e.g. 30" min="1" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">➕ Add Workout</button>
+      </form>
+
+      <!-- Success / Error message area -->
+      <div id="form-msg" class="form-msg hidden"></div>
+
+      <!-- Divider -->
+      <hr class="divider" />
+
+      <!-- Workout List -->
+      <h2 class="section-title">🗂️ Workout History</h2>
+      <div id="loading" class="loading-msg hidden">⏳ Loading your workouts...</div>
+      <div id="workout-list" class="workout-grid">
+        <!-- Cards injected here by JS -->
+      </div>
+    </section>
+
+    <!-- ===== BMI SECTION ===== -->
+    <section class="section-card" id="bmi-section">
+      <h2 class="section-title">⚖️ BMI Calculator</h2>
+      <p class="section-sub">Check your Body Mass Index quickly!</p>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="weight">Weight (kg)</label>
+          <input type="number" id="weight" placeholder="e.g. 65" min="1" />
+        </div>
+        <div class="form-group">
+          <label for="height">Height (cm)</label>
+          <input type="number" id="height" placeholder="e.g. 170" min="1" />
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="calculateBMI()">🔢 Calculate BMI</button>
+
+      <!-- BMI Result -->
+      <div id="bmi-result" class="bmi-result hidden"></div>
+    </section>
+
+  </main>
+
+  
+
+  <script src="script.js"></script>
+</body>
+</html>
