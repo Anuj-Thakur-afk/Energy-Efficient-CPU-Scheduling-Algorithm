@@ -31,27 +31,63 @@ const Charts = (() => {
   }
 
   // ── Gantt ──────────────────────────────────────────────
-  function renderGantt(tasks) {
+  function renderGantt(tasks, ganttSlices, totalTime) {
     const wrap     = document.getElementById('ganttWrap');
     const timeline = document.getElementById('ganttTimeline');
     if (!wrap) return;
-    const total = tasks.reduce((s,t) => s + t.burst, 0);
-    let elapsed = 0;
+
+    // ── Preemptive mode (Round Robin) — uses ganttSlices ──
+    if (ganttSlices && ganttSlices.length) {
+      const total = totalTime || ganttSlices.reduce((s, sl) => s + sl.duration, 0);
+
+      wrap.innerHTML = ganttSlices.map(sl => {
+        const pct = ((sl.duration / total) * 100).toFixed(4);
+        return `<div class="gantt-seg" style="flex:${pct};background:${sl.color}"
+          title="${sl.label}: ${sl.duration}ms slice (starts @${sl.start}ms)">
+          ${sl.duration >= (total * 0.04) ? sl.label : ''}
+        </div>`;
+      }).join('');
+
+      // Timeline ticks — mark every quantum boundary (deduplicated)
+      timeline.innerHTML = '';
+      const tickSet = new Set();
+      ganttSlices.forEach(sl => { tickSet.add(sl.start); });
+      tickSet.add(total);
+
+      // Show at most ~10 ticks to avoid crowding
+      let tickArr = [...tickSet].sort((a, b) => a - b);
+      if (tickArr.length > 10) {
+        const step = Math.ceil(tickArr.length / 10);
+        tickArr = tickArr.filter((_, i) => i % step === 0 || i === tickArr.length - 1);
+      }
+
+      tickArr.forEach(t => {
+        const tick = document.createElement('span');
+        tick.className = 'gantt-tick';
+        tick.style.left = ((t / total) * 100).toFixed(2) + '%';
+        tick.textContent = t + 'ms';
+        timeline.appendChild(tick);
+      });
+
+      return;
+    }
+
+    // ── Non-preemptive mode (ML+DVFS / SJF) — solid blocks ──
+    const total = tasks.reduce((s, t) => s + t.burst, 0);
     wrap.innerHTML = tasks.map(t => {
       const pct = ((t.burst / total) * 100).toFixed(2);
-      elapsed += t.burst;
       return `<div class="gantt-seg" style="flex:${pct};background:${t.color}"
         title="T${t.id}: ${t.burst}ms | ${t.coreType} | ${t.freq}MHz">
         T${t.id}
       </div>`;
     }).join('');
+
     timeline.innerHTML = '';
     let cum = 0;
     tasks.forEach(t => {
-      const pct  = (cum / total * 100).toFixed(1);
       const tick = document.createElement('span');
       tick.className = 'gantt-tick';
-      tick.style.left = pct + '%';
+      tick.style.left = ((cum / total) * 100).toFixed(1) + '%';
       tick.textContent = cum + 'ms';
       timeline.appendChild(tick);
       cum += t.burst;
@@ -390,7 +426,7 @@ const Charts = (() => {
   }
 
   function renderAll(result, thermalLimit) {
-    renderGantt(result.tasks);
+    renderGantt(result.tasks, result.ganttSlices || null, result.totalTime || 0);
     renderEnergyChart(result.tasks);
     renderCompareChart(result.tasks);
     renderFreqChart(result.tasks);
