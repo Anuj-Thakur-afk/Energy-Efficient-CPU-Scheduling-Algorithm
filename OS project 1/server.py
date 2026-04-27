@@ -43,13 +43,16 @@ def schedule():
                   '#a3e635','#38bdf8','#e879f9','#4ade80','#facc15']
 
         for i, t in enumerate(result['tasks']):
-            t['color']        = COLORS[i % len(COLORS)]
+            if 'color' not in t:
+                t['color'] = COLORS[i % len(COLORS)]
             t['isPerf']       = t.pop('is_perf',       t.get('isPerf', False))
             t['coreType']     = t.pop('core_type',     t.get('coreType', 'Performance'))
             t['thermalAlert'] = t.pop('thermal_alert', t.get('thermalAlert', False))
 
         return jsonify({
             'tasks':          result['tasks'],
+            'ganttSlices':    result.get('gantt_slices', []),
+            'totalTime':      result.get('total_time', 0),
             'totalEnergy':    result['total_energy'],
             'baselineEnergy': result['baseline_energy'],
             'saved':          result['saved'],
@@ -104,20 +107,63 @@ def chat():
 
 # ── Round Robin ───────────────────────────────────────────────────
 def rr_schedule(bursts, thermal_limit, quantum=4):
+    COLORS = ['#00d4ff','#b06aff','#00e87a','#ff8c42','#ffd166',
+              '#ff4d6a','#4dd9ff','#d4b0ff','#66f0a8','#ffb380',
+              '#c084fc','#34d399','#fb923c','#60a5fa','#f472b6',
+              '#a3e635','#38bdf8','#e879f9','#4ade80','#facc15']
+
+    # Per-task metadata
     tasks = []
     for i, burst in enumerate(bursts):
         freq   = 2400
         temp   = simulate_temp(burst, freq)
         energy = calc_energy(burst, PERF_POWER, freq)
-        tasks.append({'id': i+1, 'burst': burst, 'is_perf': True,
+        tasks.append({
+            'id': i+1, 'burst': burst, 'is_perf': True,
             'core_type': 'Performance', 'core_idx': i % 2,
             'freq': freq, 'temp': round(temp, 1), 'thermal_alert': False,
-            'energy': round(energy, 3), 'predicted': burst})
-    total = round(sum(t['energy'] for t in tasks), 3)
-    return {'tasks': tasks, 'total_energy': total, 'baseline_energy': total,
-            'saved': 0.0, 'peak_temp': max(t['temp'] for t in tasks),
-            'model': None, 'next_predicted': None,
-            'algo_name': f'Round Robin (Q={quantum})'}
+            'energy': round(energy, 3), 'predicted': burst,
+            'color': COLORS[i % len(COLORS)],
+        })
+
+    # Simulate RR → build gantt_slices
+    remaining   = [b for b in bursts]
+    gantt_slices = []
+    time        = 0
+    any_left    = True
+
+    while any_left:
+        any_left = False
+        for i, burst in enumerate(bursts):
+            if remaining[i] <= 0:
+                continue
+            any_left     = True
+            slice_dur    = min(quantum, remaining[i])
+            gantt_slices.append({
+                'taskId':   i + 1,
+                'color':    COLORS[i % len(COLORS)],
+                'label':    f'T{i+1}',
+                'start':    time,
+                'duration': slice_dur,
+            })
+            remaining[i] -= slice_dur
+            time         += slice_dur
+
+    total_time   = time
+    total_energy = round(sum(t['energy'] for t in tasks), 3)
+
+    return {
+        'tasks':          tasks,
+        'gantt_slices':   gantt_slices,
+        'total_time':     total_time,
+        'total_energy':   total_energy,
+        'baseline_energy':total_energy,
+        'saved':          0.0,
+        'peak_temp':      max(t['temp'] for t in tasks),
+        'model':          None,
+        'next_predicted': None,
+        'algo_name':      f'Round Robin (Q={quantum})',
+    }
 
 
 # ── SJF ───────────────────────────────────────────────────────────
