@@ -116,28 +116,57 @@ const Scheduler = (() => {
 
   // ── Round Robin scheduler ─────────────────────────────
   function rrSchedule(bursts, thermalLimit, quantum = 4) {
+    // Build per-task metadata first
     const tasks = bursts.map((burst, i) => ({
-      id:       i + 1,
+      id:           i + 1,
       burst,
-      isPerf:   true,
-      coreType: 'Performance',
-      coreIdx:  i % 2,
-      freq:     2400,
-      temp:     simulateTemp(burst, 2400),
+      remaining:    burst,          // mutable copy for simulation
+      isPerf:       true,
+      coreType:     'Performance',
+      coreIdx:      i % 2,
+      freq:         2400,
+      temp:         simulateTemp(burst, 2400),
       thermalAlert: false,
-      energy:   calcEnergy(burst, PERF_POWER, 2400),
-      color:    TASK_COLORS[i % TASK_COLORS.length],
-      predicted: burst,
+      energy:       calcEnergy(burst, PERF_POWER, 2400),
+      color:        TASK_COLORS[i % TASK_COLORS.length],
+      predicted:    burst,
       quantum,
     }));
 
+    // ── Simulate RR to produce ganttSlices ──────────────
+    // Each slice: { taskId, color, label, start, duration }
+    const ganttSlices = [];
+    const remaining   = bursts.map(b => b);   // remaining burst per task
+    let   time        = 0;
+    let   anyLeft     = true;
+
+    while (anyLeft) {
+      anyLeft = false;
+      for (let i = 0; i < bursts.length; i++) {
+        if (remaining[i] <= 0) continue;
+        anyLeft = true;
+        const slice = Math.min(quantum, remaining[i]);
+        ganttSlices.push({
+          taskId:   i + 1,
+          color:    TASK_COLORS[i % TASK_COLORS.length],
+          label:    'T' + (i + 1),
+          start:    time,
+          duration: slice,
+        });
+        remaining[i] -= slice;
+        time         += slice;
+      }
+    }
+
+    const totalTime     = time;
     const totalEnergy   = +tasks.reduce((s, t) => s + t.energy, 0).toFixed(3);
     const baselineEnergy = totalEnergy;
-    const saved = 0;
-    const peakTemp = Math.max(...tasks.map(t => t.temp));
+    const saved         = 0;
+    const peakTemp      = Math.max(...tasks.map(t => t.temp));
 
     return {
-      tasks, totalEnergy, baselineEnergy, saved, peakTemp,
+      tasks, ganttSlices, totalTime,
+      totalEnergy, baselineEnergy, saved, peakTemp,
       model: null, nextPredicted: null,
       algoName: 'Round Robin (Q=' + quantum + ')',
     };
